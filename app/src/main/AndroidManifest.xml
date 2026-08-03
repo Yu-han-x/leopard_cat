@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.leopardcat.app">
-
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
     <application
         android:label="豹猫桌宠"
         android:theme="@style/Theme.AppCompat.Translucent.NoTitleBar">
-
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -17,10 +14,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <service
-            android:name=".FloatingService"
+            android:name=".WebViewFloatingService"
             android:exported="false" />
-
     </application>
 </manifest>

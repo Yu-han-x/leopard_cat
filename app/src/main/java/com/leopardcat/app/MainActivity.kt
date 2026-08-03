@@ -32,7 +32,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startFloatingService() {
-        startService(Intent(this, FloatingService::class.java))
+        startService(Intent(this, WebViewFloatingService::class.java))
         finish()
     }
 }
