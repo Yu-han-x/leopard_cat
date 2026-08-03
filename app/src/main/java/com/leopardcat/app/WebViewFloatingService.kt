@@ -4,15 +4,12 @@ import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
-import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -20,7 +17,6 @@ import android.webkit.WebViewClient
 import android.widget.TextView
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
-import androidx.core.content.ContextCompat
 
 @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
 class WebViewFloatingService : Service() {
@@ -29,12 +25,6 @@ class WebViewFloatingService : Service() {
     private lateinit var webView: WebView
     private lateinit var params: WindowManager.LayoutParams
     private val handler = Handler(Looper.getMainLooper())
-
-    private var initialX = 0
-    private var initialY = 0
-    private var initialTouchX = 0f
-    private var initialTouchY = 0f
-    private var lastClickTime = 0L
 
     companion object {
         const val WINDOW_SIZE_DP = 128
@@ -61,9 +51,7 @@ class WebViewFloatingService : Service() {
             else
                 WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.TOP or Gravity.START
@@ -81,44 +69,25 @@ class WebViewFloatingService : Service() {
                 override fun onPageFinished(view: WebView?, url: String?) {}
             }
             addJavascriptInterface(BubbleBridge(), "BubbleBridge")
-            setOnTouchListener { _, event -> handleTouch(event) }
             loadDataWithBaseURL(null, getHtmlContent(), "text/html", "UTF-8", null)
         }
 
         windowManager.addView(webView, params)
     }
 
-    private fun handleTouch(event: MotionEvent): Boolean {
-        when (event.action) {
-            MotionEvent.ACTION_DOWN -> {
-                initialX = params.x
-                initialY = params.y
-                initialTouchX = event.rawX
-                initialTouchY = event.rawY
-                val now = System.currentTimeMillis()
-                if (now - lastClickTime < 300) {
-                    onDoubleClick()
-                }
-                lastClickTime = now
-            }
-            MotionEvent.ACTION_MOVE -> {
-                params.x = initialX + (event.rawX - initialTouchX).toInt()
-                params.y = initialY + (event.rawY - initialTouchY).toInt()
-                windowManager.updateViewLayout(webView, params)
-            }
-        }
-        return true
-    }
-
-    private fun onDoubleClick() {
-        webView.evaluateJavascript("showBubble()", null)
-        webView.evaluateJavascript("spawnHearts()", null)
-    }
-
     inner class BubbleBridge {
         @JavascriptInterface
         fun showBubbleJava(text: String) {
             handler.post { showBubbleOverlay(text) }
+        }
+
+        @JavascriptInterface
+        fun moveWindow(dx: Int, dy: Int) {
+            handler.post {
+                params.x += dx
+                params.y += dy
+                try { windowManager.updateViewLayout(webView, params) } catch (_: Exception) {}
+            }
         }
     }
 
@@ -269,6 +238,45 @@ function spawnHearts() {
     }
     setTimeout(() => container.remove(), 1100);
 }
+
+var touchStartX = 0, touchStartY = 0;
+var touchLastTime = 0;
+var touchIsDrag = false;
+
+canvas.addEventListener('touchstart', function(e) {
+    var t = e.touches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    touchIsDrag = false;
+    var now = Date.now();
+    if (now - touchLastTime < 300) {
+        showBubble();
+        spawnHearts();
+    }
+    touchLastTime = now;
+    e.preventDefault();
+}, { passive: false });
+
+canvas.addEventListener('touchmove', function(e) {
+    var t = e.touches[0];
+    var dx = Math.round(t.clientX - touchStartX);
+    var dy = Math.round(t.clientY - touchStartY);
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+        touchIsDrag = true;
+        if (window.BubbleBridge && window.BubbleBridge.moveWindow) {
+            window.BubbleBridge.moveWindow(dx, dy);
+        }
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+    }
+    e.preventDefault();
+}, { passive: false });
+
+canvas.addEventListener('touchend', function(e) {
+    if (!touchIsDrag) {
+    }
+    e.preventDefault();
+}, { passive: false });
 </script>
 </body>
 </html>
